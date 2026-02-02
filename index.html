@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pronoun Quest</title>
+  <style>
+    :root { --pad: 16px; --r: 14px; --shadow: 0 10px 30px rgba(0,0,0,.08); }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #f6f7fb; color: #111; min-height: 100vh; display: grid; place-items: center;
+      padding: 18px;
+    }
+    .app { width: min(920px, 100%); }
+    .card {
+      background: #fff; border-radius: 18px; box-shadow: var(--shadow);
+      padding: 18px; overflow: hidden;
+    }
+    header {
+      display: flex; gap: 12px; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .title { display:flex; flex-direction: column; gap: 2px; }
+    h1 { font-size: 18px; margin: 0; }
+    .sub { font-size: 13px; color: #555; }
+    .hud { display:flex; gap: 10px; flex-wrap: wrap; }
+    .pill {
+      background: #f0f2f8; border-radius: 999px; padding: 8px 10px; font-size: 13px;
+      display:flex; gap: 8px; align-items:center;
+    }
+    .pill strong { font-variant-numeric: tabular-nums; }
+    .grid { display:grid; grid-template-columns: 1.2fr .8fr; gap: 16px; }
+    @media (max-width: 860px){ .grid{ grid-template-columns:1fr; } }
+    .panel { border-radius: 16px; border: 1px solid #eef0f6; padding: 16px; }
+    .levelRow { display:flex; gap: 10px; flex-wrap: wrap; align-items:center; margin-bottom: 10px; }
+    .badge {
+      font-size: 12px; padding: 6px 10px; border-radius: 999px;
+      background: #111; color:#fff;
+    }
+    .prompt { font-size: 18px; line-height: 1.35; margin: 10px 0 14px; }
+    .blank { display:inline-block; min-width: 70px; border-bottom: 2px solid #111; padding: 0 6px; }
+    .choices { display:grid; gap: 10px; }
+    button.choice {
+      width: 100%; text-align: left; border: 1px solid #e6e8f2; background: #fff; color:#111;
+      padding: 12px 12px; border-radius: 14px; cursor: pointer; font-size: 15px;
+      transition: transform .02s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    button.choice:hover { border-color: #cfd5ff; box-shadow: 0 10px 20px rgba(0,0,0,.06); }
+    button.choice:active { transform: translateY(1px); }
+    button.choice[disabled] { cursor:not-allowed; opacity: .75; }
+    .feedback {
+      margin-top: 12px; padding: 10px 12px; border-radius: 14px; font-size: 14px; display:none;
+    }
+    .ok { background: #ecfdf3; border: 1px solid #c7f2d7; color:#0b6b2e; }
+    .no { background: #fff1f2; border: 1px solid #ffd1d6; color:#8a1020; }
+    .side h3 { margin: 0 0 10px; font-size: 14px; color:#333; }
+    .progress {
+      height: 10px; background: #eef0f6; border-radius: 999px; overflow: hidden;
+    }
+    .bar { height: 100%; width: 0%; background: #111; transition: width .25s ease; }
+    .mini { font-size: 13px; color:#555; margin-top: 10px; }
+    .actions { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .btn {
+      border: 0; border-radius: 14px; padding: 10px 12px; cursor:pointer;
+      background: #111; color:#fff; font-size: 14px;
+    }
+    .btn.secondary { background: #f0f2f8; color:#111; border:1px solid #e6e8f2; }
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.35); display:none; place-items:center;
+      padding: 18px;
+    }
+    .modal .card { width: min(560px, 100%); }
+    .big { font-size: 22px; margin: 0 0 8px; }
+    .muted { color:#555; font-size: 14px; }
+    .kvs { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .kv { padding: 10px 12px; border: 1px solid #eef0f6; border-radius: 14px; }
+    .kv .k { color:#666; font-size: 12px; }
+    .kv .v { font-size: 18px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .footerNote { margin-top: 12px; font-size: 12px; color:#666; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <header>
+        <div class="title">
+          <h1>Pronoun Quest</h1>
+          <div class="sub">Beat the levels: Subject Pronouns → Object Pronouns → Possessive Adjectives</div>
+        </div>
+        <div class="hud">
+          <div class="pill">Score: <strong id="score">0</strong></div>
+          <div class="pill">Streak: <strong id="streak">0</strong></div>
+          <div class="pill">Lives: <strong id="lives">3</strong></div>
+          <div class="pill">Time: <strong id="time">60</strong>s</div>
+        </div>
+      </header>
+
+      <div class="grid">
+        <div class="panel main">
+          <div class="levelRow">
+            <span class="badge" id="levelBadge">Level 1</span>
+            <span class="sub" id="levelName">Subject Pronouns</span>
+          </div>
+
+          <div class="prompt" id="prompt"></div>
+
+          <div class="choices" id="choices"></div>
+
+          <div class="feedback ok" id="fbOk"></div>
+          <div class="feedback no" id="fbNo"></div>
+
+          <div class="actions">
+            <button class="btn secondary" id="skipBtn" type="button">Skip (−1 life)</button>
+            <button class="btn secondary" id="resetBtn" type="button">Restart</button>
+          </div>
+        </div>
+
+        <div class="panel side">
+          <h3>Progress</h3>
+          <div class="progress"><div class="bar" id="bar"></div></div>
+          <div class="mini" id="miniText">Answer correctly to fill the bar. Perfect streaks give bonus points.</div>
+
+          <h3 style="margin-top:16px;">How to Win</h3>
+          <div class="mini">
+            ✅ Correct: +10 (plus streak bonus)<br/>
+            ❌ Wrong: −1 life, streak resets<br/>
+            ⏱️ Timer: finishes the run when it hits 0<br/>
+            🏆 Finish all questions to get your final rank!
+          </div>
+
+          <div class="footerNote">
+            Teacher tip: You can edit the questions inside the code (look for <strong>QUESTION BANK</strong>).
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal">
+    <div class="card">
+      <p class="big" id="endTitle">Run Complete!</p>
+      <p class="muted" id="endText"></p>
+      <div class="kvs">
+        <div class="kv"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
+        <div class="kv"><div class="k">Best streak</div><div class="v" id="endBest">0</div></div>
+      </div>
+      <div class="actions" style="margin-top:14px;">
+        <button class="btn" id="playAgainBtn" type="button">Play Again</button>
+        <button class="btn secondary" id="copyLinkBtn" type="button">Copy Game Link</button>
+      </div>
+      <div class="footerNote" id="copyNote"></div>
+    </div>
+  </div>
+
+<script>
+/* =========================
+   QUESTION BANK (edit here)
+   type: "subject" | "object" | "possAdj"
+   ========================= */
+const BANK = [
+  // Level 1: Subject pronouns
+  { type:"subject", text:"___ am your teacher.", options:["I","Me","My"], answer:"I", tip:"Use a subject pronoun before a verb (am/are/is)." },
+  { type:"subject", text:"___ is my best friend.", options:["He","Him","His"], answer:"He", tip:"'Is' needs a subject: he/she/it." },
+  { type:"subject", text:"___ are in the classroom today.", options:["We","Us","Our"], answer:"We", tip:"'Are' needs a subject: we/they/you." },
+  { type:"subject", text:"___ is on the table.", options:["It","Its","Him"], answer:"It", tip:"A thing uses 'it' as subject." },
+  { type:"subject", text:"___ are my students.", options:["They","Them","Their"], answer:"They", tip:"People/things as subject: they." },
+  { type:"subject", text:"Sara and I are late. ___ run to class.", options:["We","Us","Our"], answer:"We", tip:"'Run' needs a subject pronoun: we." },
+
+  // Level 2: Object pronouns
+  { type:"object", text:"The teacher helps ___.", options:["me","I","my"], answer:"me", tip:"After a verb, use an object pronoun (me/him/her/us/them)." },
+  { type:"object", text:"I see ___.", options:["him","he","his"], answer:"him", tip:"'See' takes an object: him." },
+  { type:"object", text:"She calls ___.", options:["us","we","our"], answer:"us", tip:"'Calls' takes an object: us." },
+  { type:"object", text:"We like ___.", options:["them","they","their"], answer:"them", tip:"After a verb: them." },
+  { type:"object", text:"Can you hear ___?", options:["her","she","hers"], answer:"her", tip:"After a verb: her." },
+  { type:"object", text:"Please listen to ___.", options:["me","I","my"], answer:"me", tip:"After 'to' (a preposition): me/him/her/us/them." },
+
+  // Level 3: Possessive adjectives
+  { type:"possAdj", text:"This is ___ book.", options:["my","me","I"], answer:"my", tip:"Before a noun (book), use a possessive adjective." },
+  { type:"possAdj", text:"Is that ___ pencil?", options:["your","you","yours"], answer:"your", tip:"Before a noun (pencil): your." },
+  { type:"possAdj", text:"He forgot ___ homework.", options:["his","him","he"], answer:"his", tip:"Before a noun: his." },
+  { type:"possAdj", text:"She loves ___ dog.", options:["her","she","hers"], answer:"her", tip:"Before a noun: her." },
+  { type:"possAdj", text:"We clean ___ classroom.", options:["our","us","we"], answer:"our", tip:"Before a noun: our." },
+  { type:"possAdj", text:"They forgot ___ jackets.", options:["their","them","they"], answer:"their", tip:"Before a noun: their." },
+  { type:"possAdj", text:"The cat licks ___ paws.", options:["its","it","his"], answer:"its", tip:"Things/animals: its + noun." },
+
+  // Mixed (helps spacing/review)
+  { type:"subject", text:"Maria is happy because ___ got a good grade.", options:["she","her","hers"], answer:"she", tip:"Before 'got' (verb), use a subject." },
+  { type:"object", text:"I like Ana. I sit next to ___.", options:["her","she","hers"], answer:"her", tip:"After 'next to': object pronoun." },
+  { type:"object", text:"They are my friends. I play with ___.", options:["them","they","their"], answer:"them", tip:"After 'with': them." },
+];
+
+const LEVELS = [
+  { key:"subject", name:"Subject Pronouns", quota: 6 },
+  { key:"object", name:"Object Pronouns", quota: 6 },
+  { key:"possAdj", name:"Possessive Adjectives", quota: 7 }
+];
+
+/* =========================
+   GAME STATE
+   ========================= */
+let pool = [];
+let idx = 0;
+
+let score = 0;
+let streak = 0;
+let bestStreak = 0;
+let lives = 3;
+let timeLeft = 60;
+let timerId = null;
+
+let currentLevelIndex = 0;
+let answeredInLevel = 0;
+
+const el = (id) => document.getElementById(id);
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function buildPool(){
+  // Filter by levels in order, but shuffle within each type for variety.
+  const byType = {
+    subject: shuffle(BANK.filter(q=>q.type==="subject")),
+    object: shuffle(BANK.filter(q=>q.type==="object")),
+    possAdj: shuffle(BANK.filter(q=>q.type==="possAdj")),
+  };
+  const result = [];
+  LEVELS.forEach(L => {
+    const slice = byType[L.key].slice(0, L.quota);
+    result.push(...slice);
+  });
+  return result;
+}
+
+function startGame(){
+  pool = buildPool();
+  idx = 0;
+
+  score = 0;
+  streak = 0;
+  bestStreak = 0;
+  lives = 3;
+
+  timeLeft = 60;
+  currentLevelIndex = 0;
+  answeredInLevel = 0;
+
+  el("modal").style.display = "none";
+  setHUD();
+  renderQuestion();
+  startTimer();
+}
+
+function startTimer(){
+  if(timerId) clearInterval(timerId);
+  timerId = setInterval(() => {
+    timeLeft -= 1;
+    el("time").textContent = String(timeLeft);
+    if(timeLeft <= 0){
+      endGame("Time’s up!");
+    }
+  }, 1000);
+}
+
+function setHUD(){
+  el("score").textContent = String(score);
+  el("streak").textContent = String(streak);
+  el("lives").textContent = String(lives);
+  el("time").textContent = String(timeLeft);
+
+  const progressPct = Math.round((idx / pool.length) * 100);
+  el("bar").style.width = progressPct + "%";
+}
+
+function setLevelUI(){
+  const L = LEVELS[currentLevelIndex];
+  el("levelBadge").textContent = `Level ${currentLevelIndex+1}`;
+  el("levelName").textContent = L.name;
+}
+
+function showFeedback(ok, msg){
+  const okEl = el("fbOk");
+  const noEl = el("fbNo");
+  okEl.style.display = "none";
+  noEl.style.display = "none";
+  if(ok){
+    okEl.textContent = msg;
+    okEl.style.display = "block";
+  } else {
+    noEl.textContent = msg;
+    noEl.style.display = "block";
+  }
+}
+
+function disableChoices(){
+  [...document.querySelectorAll("button.choice")].forEach(b => b.disabled = true);
+}
+
+function renderQuestion(){
+  if(idx >= pool.length){
+    endGame("You finished all questions!");
+    return;
+  }
+
+  setLevelUI();
+  showFeedback(true, ""); // hides
+  const q = pool[idx];
+
+  const parts = q.text.split("___");
+  const promptHtml = parts.length === 2
+    ? `${escapeHtml(parts[0])}<span class="blank">___</span>${escapeHtml(parts[1])}`
+    : escapeHtml(q.text);
+
+  el("prompt").innerHTML = promptHtml;
+
+  const choices = el("choices");
+  choices.innerHTML = "";
+  const options = shuffle(q.options);
+
+  options.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    btn.type = "button";
+    btn.textContent = opt;
+    btn.addEventListener("click", () => answer(opt));
+    choices.appendChild(btn);
+  });
+
+  setHUD();
+}
+
+function answer(opt){
+  const q = pool[idx];
+  disableChoices();
+
+  const correct = (opt === q.answer);
+
+  if(correct){
+    streak += 1;
+    bestStreak = Math.max(bestStreak, streak);
+
+    // Base +10, plus small streak bonus
+    const bonus = Math.min(10, (streak-1) * 2); // 0,2,4... up to 10
+    score += (10 + bonus);
+
+    showFeedback(true, `✅ Correct! +${10+bonus} points. Tip: ${q.tip}`);
+  } else {
+    lives -= 1;
+    streak = 0;
+    showFeedback(false, `❌ Not quite. Correct answer: "${q.answer}". Tip: ${q.tip}`);
+  }
+
+  answeredInLevel += 1;
+
+  // Level advancement logic
+  const L = LEVELS[currentLevelIndex];
+  if(answeredInLevel >= L.quota){
+    currentLevelIndex = Math.min(currentLevelIndex + 1, LEVELS.length - 1);
+    answeredInLevel = 0;
+  }
+
+  setHUD();
+
+  if(lives <= 0){
+    endGame("No lives left!");
+    return;
+  }
+
+  setTimeout(() => {
+    idx += 1;
+    renderQuestion();
+  }, 900);
+}
+
+function endGame(reason){
+  if(timerId) clearInterval(timerId);
+  timerId = null;
+
+  // Rank label
+  const maxPossible = pool.length * 20; // rough upper bound with bonuses
+  const pct = Math.round((score / Math.max(1, maxPossible)) * 100);
+  let rank = "Bronze";
+  if(pct >= 55) rank = "Silver";
+  if(pct >= 70) rank = "Gold";
+  if(pct >= 85) rank = "Legend";
+
+  el("endTitle").textContent = reason;
+  el("endText").textContent = `Final rank: ${rank}. Want to beat your score?`;
+  el("endScore").textContent = String(score);
+  el("endBest").textContent = String(bestStreak);
+
+  el("copyNote").textContent = "";
+  el("modal").style.display = "grid";
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+/* =========================
+   UI buttons
+   ========================= */
+el("resetBtn").addEventListener("click", startGame);
+
+el("skipBtn").addEventListener("click", () => {
+  if(lives <= 0) return;
+  lives -= 1;
+  streak = 0;
+  showFeedback(false, "⏭️ Skipped. You lost 1 life.");
+  disableChoices();
+  setHUD();
+  if(lives <= 0) { endGame("No lives left!"); return; }
+  setTimeout(() => { idx += 1; renderQuestion(); }, 600);
+});
+
+el("playAgainBtn").addEventListener("click", startGame);
+
+el("copyLinkBtn").addEventListener("click", async () => {
+  const link = window.location.href;
+  try {
+    await navigator.clipboard.writeText(link);
+    el("copyNote").textContent = "Copied! Share that link with your students.";
+  } catch {
+    el("copyNote").textContent = "Couldn’t auto-copy. Manually copy the URL from your browser.";
+  }
+});
+
+/* Start */
+startGame();
+</script>
+</body>
+</html>
